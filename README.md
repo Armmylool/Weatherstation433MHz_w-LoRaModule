@@ -1,94 +1,89 @@
-🛰️ RAK811: 433MHz to LoRaWAN Bridge
-This project acts as a bridge, capturing data from a 433 MHz wireless sensor (like a weather station) using a RAK811 module. It then relays this data to a LoRaWAN network, such as The Things Network (TTN).
+## 🛰️ 433MHz Weather Station to LoRaWAN/ChirpStack Bridge
 
-✨ Features
-Receives 433 MHz Signals: Captures and processes data packets from common 433 MHz RF modules.
+This project is designed to capture data from a **433 MHz wireless weather station** using a **RAK811** module. The RAK811 acts as a bridge, receiving the sensor data and relaying it over LoRaWAN to a **ChirpStack** network server. The data is then stored in **InfluxDB** and visualized on a **Grafana** dashboard.
 
-LoRaWAN Transmission: Formats the captured data and transmits it over a LoRaWAN network using the MCCI LMIC library.
+-----
 
-OTAA Authentication: Utilizes Over-the-Air Activation (OTAA) for securely joining the LoRaWAN network.
+## 🏗️ Project Architecture
 
-Serial Debugging: Provides clear status updates, received data, and transmission events through the Serial Monitor for easy debugging.
+This diagram shows the flow of data from the sensor to the final dashboard.
 
-RAK811 Optimized: The code is specifically configured for the RAK811's pin mapping.
+```
+[Weather Station] --(433 MHz)--> [RAK811] --(LoRaWAN)--> [ChirpStack] --(Integration)--> [InfluxDB] --> [Grafana]
+```
 
-🛠️ Hardware Requirements
-RAK811 LoRa Module: The main microcontroller and LoRa radio.
+-----
 
-433 MHz RF Receiver Module: A standard receiver like the XY-MK-5V or a similar model.
+## ✨ Features
 
-(Optional) 433 MHz Transmitter: The source of the signal, such as a wireless weather station or an Arduino with a 433 MHz transmitter module.
+  * 📡 **Receives Weather Data**: Captures and decodes data packets from a 433 MHz wireless weather station.
+  * 🛰️ **LoRaWAN Transmission**: Forwards the weather data to a private or public LoRaWAN network.
+  * ⚙️ **ChirpStack Ready**: Designed to integrate with the ChirpStack open-source LoRaWAN Network Server stack.
+  * 🛡️ **OTAA Authentication**: Uses Over-the-Air Activation (OTAA) for secure network joins.
+  * 💻 **Serial Debugging**: Provides real-time status updates for easy monitoring and troubleshooting.
 
-⚙️ Setup and Configuration
-1. Hardware Connection
-Connect the 433 MHz receiver module to your RAK811 board as follows:
+-----
 
-DATA Pin of the receiver ➡️ Pin PB12 on the RAK811
+## 🛠️ Hardware Requirements
 
-VCC Pin of the receiver ➡️ A suitable power source (e.g., 3.3V or 5V, depending on your module)
+  * **Wireless Weather Station**: Any model that transmits data over the 433 MHz frequency.
+  * **RAK811 LoRa Module**: The main microcontroller and LoRa radio.
+  * **433 MHz RF Receiver Module**: A standard receiver like the `XY-MK-5V` or a similar model.
 
-GND Pin of the receiver ➡️ GND on the RAK811
+-----
 
-Note: The LoRa-specific pins (NSS, RST, DIOs) are already defined in the code for the RAK811 and do not need to be changed.
+## 🔌 Setup and Configuration
 
-2. LoRaWAN Setup (The Things Network)
-You must first register your device on a LoRaWAN network.
+### 1\. Hardware Wiring
 
-Log in to your account on The Things Network.
+Connect the 433 MHz receiver module to your RAK811 board.
 
-Create a new Application.
+| Receiver Pin | RAK811 Pin     | Description          |
+| :----------- | :------------- | :------------------- |
+| **DATA** | `PB12`         | The signal output pin. |
+| **VCC** | `3.3V` or `5V` | Power supply.        |
+| **GND** | `GND`          | Common Ground.       |
 
-Inside your application, navigate to End devices and click Add end device.
+> **Note:** The LoRa-specific pins (`NSS`, `RST`, `DIOs`) are already configured in the code for the RAK811.
 
-Choose the Enter end device specifics manually registration method.
+### 2\. LoRaWAN Setup (ChirpStack)
 
-Select the correct Frequency plan for your region (e.g., EU868, US915, AS923_4).
+You must register your RAK811 as a device in your ChirpStack instance.
 
-Set the LoRaWAN version to LoRaWAN Specification 1.0.2 or higher.
+1.  Log in to your **ChirpStack** web interface.
+2.  Create a **Device profile** for your RAK811 (specifying LoRaWAN version, etc.).
+3.  Create an **Application**.
+4.  Inside the Application, add a new device. You will need to provide a `Device EUI`.
+5.  After creating the device, ChirpStack will provide you with an `AppKey`. The `AppEUI` (or `JoinEUI`) is typically determined by your Application settings.
+6.  Take note of the **`AppEUI`**, **`DevEUI`**, and **`AppKey`** for the next step.
 
-Click Generate to create a DevEUI and AppKey. The AppEUI will be assigned automatically.
+### 3\. Code Configuration
 
-Copy these three values: AppEUI, DevEUI, and AppKey.
+Open the main sketch file and update the LoRaWAN credentials to match those from your ChirpStack setup.
 
-3. Code Configuration
-Open the main .ino sketch file and update the APPEUI, DEVEUI, and APPKEY arrays with the values you obtained from TTN.
+**IMPORTANT**: Pay close attention to the **endianness** required by the code.
 
-IMPORTANT: Pay close attention to the endianness comments in the code.
+  * `APPEUI` and `DEVEUI` must be in **Little-Endian** format (reverse the byte order).
+  * `APPKEY` must be in **Big-Endian** format (copy as-is).
 
-APPEUI and DEVEUI must be in Little-Endian format (reverse the byte order shown on TTN).
+<!-- end list -->
 
-APPKEY must be in Big-Endian format (copy it directly as shown on TTN).
+```cpp
+// Update this with the AppEUI/JoinEUI from your ChirpStack Application (in little-endian)
+static const u1_t PROGMEM APPEUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-C++
+// Update this with your device's DevEUI (in little-endian)
+static const u1_t PROGMEM DEVEUI[8] = { 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-// This EUI must be in little-endian format, so least-significant-byte
-// first. When copying an EUI from ttnctl output, this means to reverse
-// the bytes.
-static const u1_t PROGMEM APPEUI[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // <-- EDIT THIS
+// Update this with the AppKey provided by ChirpStack for your device (in big-endian)
+static const u1_t PROGMEM APPKEY[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03 };
+```
 
-// This should also be in little endian format, see above.
-static const u1_t PROGMEM DEVEUI[8] = { 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // <-- EDIT THIS
+### 4\. Backend Integration
 
-// This key should be in big endian format. A key from ttnctl can be copied as-is.
-static const u1_t PROGMEM APPKEY[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03 }; // <-- EDIT THIS
-4. Compile and Upload
-Ensure you have the MCCI LoRaWAN LMIC library installed in your Arduino IDE.
+1.  In **ChirpStack**, set up an integration to push data to an MQTT broker or directly to **InfluxDB** (using the InfluxDB integration).
+2.  In **Grafana**, add InfluxDB as a data source.
+3.  Create a new dashboard in Grafana and build panels by querying the weather station data from InfluxDB.
 
-Make sure all other project header files (2_Signal.h, 4_Display.h, etc.) are in the same directory as your main sketch.
-
-Select RAK811 as your board in the Arduino IDE.
-
-Compile and upload the code.
-
-▶️ How It Works
-setup(): Initializes the Serial port, enables the PIN_RF_RX_DATA input to listen for 433 MHz signals, and initializes the LMIC LoRaWAN stack.
-
-loop(): Continuously calls os_runloop_once(), which is the core state machine for the LMIC library that manages LoRaWAN jobs (transmissions, receptions, etc.).
-
-do_send(): This function is scheduled to run periodically. It calls ScanEvent() to check for new data from the 433 MHz receiver. If data is found, it proceeds to call sendMsg().
-
-sendMsg(): This function processes the raw data received from the sensor (e.g., temperature, humidity) and formats it into a single string payload.
-
-LMIC_setTxData2(): The formatted payload is queued for transmission over LoRaWAN.
-
-onEvent(): This callback function handles all events from the LMIC stack, such as EV_JOINED (successfully joined the network) and EV_TXCOMPLETE (transmission finished), printing status messages to the Serial Monitor.
+----
+<img width="1831" height="595" alt="image" src="https://github.com/user-attachments/assets/bf668f20-560f-49da-a8ac-36e1abd1f384" />
